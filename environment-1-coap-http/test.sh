@@ -1,0 +1,267 @@
+#!/bin/bash
+
+# Environment 1: CoAP + HTTP Testing Script
+# For TELE 6510 Lab - Northeastern University
+
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/network-control.sh"
+
+# Configuration
+COAP_SERVER_ADDR="[::1]"
+COAP_SERVER_PORT=5683
+HTTP_SERVER_PORT=8080
+RESOURCE_PATH="time"
+NUM_TRANSACTIONS=30
+OUTPUT_DIR="../lab_results/env1"
+PACKET_LOSS_RATES=(0 3 5 10)
+
+# Create output directories
+mkdir -p "$OUTPUT_DIR/captures"
+mkdir -p "$OUTPUT_DIR/latencies"
+mkdir -p "../lab_results/summary"
+
+# Log functions
+log_info() {
+    echo -e "\e[1;34m[INFO]\e[0m $1"
+}
+
+log_success() {
+    echo -e "\e[1;32m[SUCCESS]\e[0m $1"
+}
+
+log_error() {
+    echo -e "\e[1;31m[ERROR]\e[0m $1"
+}
+
+# Server management functions
+start_coap_server() {
+    log_info "Starting CoAP Server..."
+    if pgrep -f "coap-server -A ::1" > /dev/null; then
+        log_info "CoAP Server is already running"
+    else
+        coap-server -A ::1 -p $COAP_SERVER_PORT > /dev/null 2>&1 &
+        COAP_SERVER_PID=$!
+        sleep 2
+        log_success "CoAP Server started with PID: $COAP_SERVER_PID"
+    fi
+}
+
+start_http_server() {
+    log_info "Starting HTTP Server..."
+    if pgrep -f "http-server -p $HTTP_SERVER_PORT" > /dev/null; then
+        log_info "HTTP Server is already running"
+    else
+        http-server -p $HTTP_SERVER_PORT > /dev/null 2>&1 &
+        HTTP_SERVER_PID=$!
+        sleep 2
+        log_success "HTTP Server started with PID: $HTTP_SERVER_PID"
+    fi
+}
+
+stop_servers() {
+    log_info "Stopping all servers..."
+    [ ! -z "$COAP_SERVER_PID" ] && kill $COAP_SERVER_PID 2>/dev/null
+    [ ! -z "$HTTP_SERVER_PID" ] && kill $HTTP_SERVER_PID 2>/dev/null
+    log_success "All servers stopped"
+}
+
+# Capture management functions
+start_capture() {
+    local protocol=$1
+    local config=$2
+    local loss_rate=$3
+    local capture_file="$OUTPUT_DIR/captures/${protocol}_${config}_${loss_rate}pct.pcapng"
+    
+    log_info "Starting capture for $protocol ($config) with $loss_rate% packet loss..."
+    
+    case $protocol in
+        "coap") filter="port $COAP_SERVER_PORT" ;;
+        "http") filter="port $HTTP_SERVER_PORT" ;;
+        "coap_http") filter="port $COAP_SERVER_PORT or port $HTTP_SERVER_PORT" ;;
+        *) log_error "Unknown protocol: $protocol"; return 1 ;;
+    esac
+    
+    tshark -i lo -f "$filter" -w "$capture_file" > /dev/null 2>&1 &
+    CAPTURE_PID=$!
+    sleep 2
+    
+    echo $CAPTURE_PID
+    echo $capture_file
+}
+
+stop_capture() {
+    local pid=$1
+    log_info "Stopping capture process (PID: $pid)..."
+    kill $pid 2>/dev/null
+    sleep 2
+    log_success "Capture stopped"
+}
+
+# Test execution functions
+run_coap_test() {
+    local type=$1
+    local loss_rate=$2
+    local log_file="$OUTPUT_DIR/latencies/coap_${type}_${loss_rate}pct.csv"
+    
+    log_info "Running $NUM_TRANSACTIONS $type CoAP transactions with $loss_rate% packet loss..."
+    
+    read -r capture_pid capture_file <<< $(start_capture "coap" $type $loss_rate)
+    
+    echo "Transaction,Timestamp,Latency_ms" > "$log_file"
+    
+    for i in $(seq 1 $NUM_TRANSACTIONS); do
+        log_info "CoAP Transaction $i of $NUM_TRANSACTIONS"
+        start_time=$(date +%s.%N)
+        
+        if [ "$type" == "confirmable" ]; then
+            coap-client -m get coap://$COAP_SERVER_ADDR:$COAP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        else
+            coap-client -m get -N coap://$COAP_SERVER_ADDR:$COAP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        fi
+        
+        end_time=$(date +%s.%N)
+        latency=$(echo "($end_time - $start_time) * 1000" | bc)
+        
+        echo "$i,$(date +%Y-%m-%d-%H:%M:%S),$latency" >> "$log_file"
+        sleep 1
+    done
+    
+    avg_latency=$(awk -F, 'NR>1 {sum+=$3; count++} END {print sum/count}' "$log_file")
+    echo "Average,$avg_latency" >> "$log_file"
+    
+    log_success "Average latency for $type CoAP with $loss_rate% packet loss: $avg_latency ms"
+    
+    stop_capture $capture_pid
+    echo $avg_latency
+}
+
+run_http_test() {
+    local loss_rate=$1
+    local log_file="$OUTPUT_DIR/latencies/http_${loss_rate}pct.csv"
+    
+    log_info "Running $NUM_TRANSACTIONS HTTP transactions with $loss_rate% packet loss..."
+    
+    read -r capture_pid capture_file <<< $(start_capture "http" "standard" $loss_rate)
+    
+    echo "Transaction,Timestamp,Latency_ms" > "$log_file"
+    
+    for i in $(seq 1 $NUM_TRANSACTIONS); do
+        log_info "HTTP Transaction $i of $NUM_TRANSACTIONS"
+        start_time=$(date +%s.%N)
+        
+        curl http://localhost:$HTTP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        
+        end_time=$(date +%s.%N)
+        latency=$(echo "($end_time - $start_time) * 1000" | bc)
+        
+        echo "$i,$(date +%Y-%m-%d-%H:%M:%S),$latency" >> "$log_file"
+        sleep 1
+    done
+    
+    avg_latency=$(awk -F, 'NR>1 {sum+=$3; count++} END {print sum/count}' "$log_file")
+    echo "Average,$avg_latency" >> "$log_file"
+    
+    log_success "Average latency for HTTP with $loss_rate% packet loss: $avg_latency ms"
+    
+    stop_capture $capture_pid
+    echo $avg_latency
+}
+
+run_coap_http_test() {
+    local coap_type=$1
+    local loss_rate=$2
+    local log_file="$OUTPUT_DIR/latencies/coap_${coap_type}_http_${loss_rate}pct.csv"
+    
+    log_info "Running $NUM_TRANSACTIONS combined CoAP ($coap_type) + HTTP transactions with $loss_rate% packet loss..."
+    
+    read -r capture_pid capture_file <<< $(start_capture "coap_http" $coap_type $loss_rate)
+    
+    echo "Transaction,Timestamp,CoAP_Latency_ms,HTTP_Latency_ms,Total_Latency_ms" > "$log_file"
+    
+    for i in $(seq 1 $NUM_TRANSACTIONS); do
+        log_info "CoAP + HTTP Transaction $i of $NUM_TRANSACTIONS"
+        
+        start_time=$(date +%s.%N)
+        
+        if [ "$coap_type" == "confirmable" ]; then
+            coap-client -m get coap://$COAP_SERVER_ADDR:$COAP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        else
+            coap-client -m get -N coap://$COAP_SERVER_ADDR:$COAP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        fi
+        
+        coap_end_time=$(date +%s.%N)
+        
+        curl http://localhost:$HTTP_SERVER_PORT/$RESOURCE_PATH > /dev/null 2>&1
+        
+        end_time=$(date +%s.%N)
+        
+        coap_latency=$(echo "($coap_end_time - $start_time) * 1000" | bc)
+        http_latency=$(echo "($end_time - $coap_end_time) * 1000" | bc)
+        total_latency=$(echo "($end_time - $start_time) * 1000" | bc)
+        
+        echo "$i,$(date +%Y-%m-%d-%H:%M:%S),$coap_latency,$http_latency,$total_latency" >> "$log_file"
+        sleep 1
+    done
+    
+    avg_coap_latency=$(awk -F, 'NR>1 {sum+=$3; count++} END {print sum/count}' "$log_file")
+    avg_http_latency=$(awk -F, 'NR>1 {sum+=$4; count++} END {print sum/count}' "$log_file")
+    avg_total_latency=$(awk -F, 'NR>1 {sum+=$5; count++} END {print sum/count}' "$log_file")
+    echo "Average,$avg_coap_latency,$avg_http_latency,$avg_total_latency" >> "$log_file"
+    
+    log_success "Average latencies for CoAP ($coap_type) + HTTP with $loss_rate% packet loss:"
+    log_success "  CoAP: $avg_coap_latency ms"
+    log_success "  HTTP: $avg_http_latency ms"
+    log_success "  Total: $avg_total_latency ms"
+    
+    stop_capture $capture_pid
+    echo $avg_total_latency
+}
+
+generate_summary() {
+    local summary_file="../lab_results/summary/env1_summary.csv"
+    
+    log_info "Generating summary table for Environment 1..."
+    echo "Packet Loss %,Confirmable CoAP Latency (ms),Non-confirmable CoAP Latency (ms),HTTP Latency (ms),End-to-End Latency (ms)" > "$summary_file"
+    
+    for loss_rate in "${PACKET_LOSS_RATES[@]}"; do
+        conf_latency=$(grep "Average" "$OUTPUT_DIR/latencies/coap_confirmable_${loss_rate}pct.csv" | cut -d',' -f2)
+        non_conf_latency=$(grep "Average" "$OUTPUT_DIR/latencies/coap_non-confirmable_${loss_rate}pct.csv" | cut -d',' -f2)
+        http_latency=$(grep "Average" "$OUTPUT_DIR/latencies/http_${loss_rate}pct.csv" | cut -d',' -f2)
+        e2e_latency=$(grep "Average" "$OUTPUT_DIR/latencies/coap_confirmable_http_${loss_rate}pct.csv" | cut -d',' -f4)
+        echo "$loss_rate,$conf_latency,$non_conf_latency,$http_latency,$e2e_latency" >> "$summary_file"
+    done
+    
+    log_success "Environment 1 summary table generated at $summary_file"
+}
+
+main() {
+    log_info "=== Starting Environment 1: CoAP + HTTP Testing ==="
+    trap stop_servers EXIT
+    
+    start_coap_server
+    start_http_server
+    
+    for loss_rate in "${PACKET_LOSS_RATES[@]}"; do
+        set_packet_loss $loss_rate
+        
+        run_coap_test "confirmable" $loss_rate
+        run_coap_test "non-confirmable" $loss_rate
+        run_http_test $loss_rate
+        
+        run_coap_http_test "confirmable" $loss_rate
+        
+        if [ $loss_rate -ne 0 ]; then
+            remove_packet_loss
+        fi
+    done
+    
+    generate_summary
+    stop_servers
+    
+    log_success "=== Testing Complete ==="
+    log_success "Results saved to $OUTPUT_DIR"
+    log_success "Summary tables in ../lab_results/summary"
+}
+
+main

@@ -1,0 +1,23 @@
+# Lab Results and Captures
+lab_results/
+env1_results/
+env2_results/
+*.pcap
+*.pcapng
+
+# Data Files
+*.csv
+*.txt
+results/
+
+# OS Files
+.DS_Store
+.DS_Store?
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.log
