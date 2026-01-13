@@ -27,6 +27,9 @@ iot-protocol-simulation/
 
 ## Quick Start
 
+> [!IMPORTANT]
+> Follow these steps in order. Do not skip the dependency installation step.
+
 ### 1. Install Dependencies
 
 ```bash
@@ -100,7 +103,13 @@ lab_results/
     └── FULL_REPORT.txt
 ```
 
+> [!TIP]
+> Save the `lab_results/` directory for your lab report submission. Review the summary CSV files for quick performance comparisons.
+
 ## System Requirements
+
+> [!WARNING]
+> These tests require specific system configurations. Ensure all requirements are met before attempting to run tests.
 
 - **OS**: Linux (Ubuntu 20.04+ recommended)
 - **RAM**: 2GB minimum
@@ -108,6 +117,9 @@ lab_results/
 - **Network**: Loopback interface (lo) - no external network required
 
 ## Lab Objectives
+
+> [!IMPORTANT]
+> These tests directly address the lab questions. Use the results to answer each question with supporting data and Wireshark traces.
 
 These tests address the following lab questions:
 
@@ -117,6 +129,9 @@ These tests address the following lab questions:
 4. **Quality of Service**: Understand how QoS parameters affect latency and reliability
 
 ## Troubleshooting
+
+> [!NOTE]
+> Review this section if tests fail or produce unexpected results.
 
 ### Missing Dependencies
 Run the installer again:
@@ -137,6 +152,9 @@ Ensure the loopback interface is available:
 ```bash
 ip link show lo
 ```
+
+> [!CAUTION]
+> If the loopback interface is missing or down, network tests will fail. Contact your system administrator if you cannot bring up the interface.
 
 ## Course Information
 
@@ -169,16 +187,13 @@ Questions to answer:
     - b. What is the request/response delay at the application when sending a simple 10-byte (or less) readout? (use Wireshark timestamps, run 30 transaction and use the average).
 2. For uniform 0%, 3%, 5% and 10% packet loss introduced at the access side, make a table packet loss vs latency for conﬁrmable and non-conﬁrmable CoAP.
 3. Describe the messages that are exchanged between the device and the application.
-4. How does quality a\ect latency? Why?
+4. How does quality aﬀect latency? Why?
 
+---
 
+### Environment 2: CoAP + MQTT
 
-
-#
-
-## Environment 2: CoAP + MQTT
-
-Build a simulated network environment that uses CoAP and MTTQ to communicate from an
+Build a simulated network environment that uses CoAP and MQTT to communicate from an
 embedded device to an edge device, to an application.
 
 ![img](/assets/mqtt.png)
@@ -198,6 +213,6 @@ Questions to answer:
 
     - b. What is the delay between the device and the application when sending a simple 10-byte (or less) readout? (use Wireshark timestamps, run 30 transaction and use the average).
 
-2. for uniform 0%, 3%, 5% and 10% packet loss introduced at the access side (up to you where). Make a table packet loss vs latency for conﬁrmable CoAP and each quality level at most once, at least once and exactly once of MQTT.
+2. For uniform 0%, 3%, 5% and 10% packet loss introduced at the access side (up to you where). Make a table packet loss vs latency for conﬁrmable CoAP and each quality level at most once, at least once and exactly once of MQTT.
 3. Describe the messages that are exchanged between the device and the application.
-4. How does core based MQTT compare against HTTP for same network conditions?
+4. How does CoAP-based MQTT compare against HTTP for same network conditions?

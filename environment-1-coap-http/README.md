@@ -12,6 +12,9 @@ Device (CoAP/HTTP Client) → Edge Device → Application Server
 
 ## Prerequisites
 
+> [!IMPORTANT]
+> Ensure all prerequisites are installed before running tests. Missing dependencies will cause test failures.
+
 - libcoap development libraries (`libcoap-3-dev`)
 - Node.js and npm (for HTTP server)
 - tshark (for packet capture)
@@ -25,6 +28,9 @@ sudo apt install -y libcoap-3-dev curl wget bc
 npm install -g http-server
 ```
 
+> [!TIP]
+> Consider running installation commands with `sudo` if you encounter permission errors.
+
 ## Running Tests
 
 Execute the test script from this directory:
@@ -35,6 +41,9 @@ chmod +x test.sh
 ```
 
 ### What the script does:
+
+> [!NOTE]
+> The script automates the entire testing workflow including server setup, packet loss simulation, and result collection. This may take several minutes depending on system resources.
 
 1. **Starts servers**: CoAP server and HTTP server on localhost
 2. **Runs transactions** at different packet loss rates (0%, 3%, 5%, 10%)
@@ -53,7 +62,8 @@ Results are saved to `../lab_results/env1/`:
 - **Captures**: Wireshark packet capture files (`.pcapng`)
 - **Latencies**: CSV files with transaction-level latency data
 
-Summary table: `../lab_results/summary/env1_summary.csv`
+> [!NOTE]
+> Summary table: `../lab_results/summary/env1_summary.csv`
 
 ## Lab Questions Addressed
 
@@ -65,6 +75,9 @@ This environment answers the following lab questions:
 4. **Quality of Service Effect**: Demonstrates how confirmable vs non-confirmable affects latency
 
 ## Key Metrics
+
+> [!TIP]
+> Review these metrics carefully when analyzing results to understand performance trade-offs between protocols.
 
 The tests measure:
 - Individual transaction latencies (ms)

@@ -12,6 +12,9 @@ Device (CoAP Client) → Edge Device (MQTT Broker) → Application (MQTT Subscri
 
 ## Prerequisites
 
+> [!IMPORTANT]
+> Ensure all prerequisites are installed before running tests. Missing dependencies will cause test failures.
+
 - libcoap development libraries (`libcoap-3-dev`)
 - Mosquitto MQTT broker and clients (`mosquitto`, `mosquitto-clients`)
 - tshark (for packet capture)
@@ -24,6 +27,9 @@ sudo apt update
 sudo apt install -y libcoap-3-dev mosquitto mosquitto-clients bc
 ```
 
+> [!TIP]
+> Ensure the Mosquitto service is running after installation with `sudo systemctl start mosquitto`.
+
 ## Running Tests
 
 Execute the test script from this directory:
@@ -34,6 +40,9 @@ chmod +x test.sh
 ```
 
 ### What the script does:
+
+> [!NOTE]
+> The script automates the entire testing workflow including server setup, packet loss simulation, and result collection. This may take several minutes depending on system resources.
 
 1. **Starts servers**: CoAP server and MQTT broker on localhost
 2. **Runs transactions** at different packet loss rates (0%, 3%, 5%, 10%)
@@ -52,7 +61,8 @@ Results are saved to `../lab_results/env2/`:
 - **Captures**: Wireshark packet capture files (`.pcapng`)
 - **Latencies**: CSV files with transaction-level latency data
 
-Summary table: `../lab_results/summary/env2_summary.csv`
+> [!NOTE]
+> Summary table: `../lab_results/summary/env2_summary.csv`
 
 ## Lab Questions Addressed
 
@@ -65,6 +75,9 @@ This environment answers the following lab questions:
 
 ## Key Metrics
 
+> [!TIP]
+> Review these metrics carefully when analyzing results to understand how QoS levels affect performance trade-offs.
+
 The tests measure:
 - CoAP transaction latency (device to edge)
 - MQTT publish latency (edge to broker)
@@ -73,6 +86,9 @@ The tests measure:
 - Average latencies per test condition
 
 ## MQTT Quality of Service Levels
+
+> [!IMPORTANT]
+> Understanding QoS levels is crucial for interpreting latency results. Each level provides different reliability guarantees with varying performance implications.
 
 - **QoS 0**: Minimal overhead, no delivery guarantees
 - **QoS 1**: Higher latency, guarantees message reaches at least once
