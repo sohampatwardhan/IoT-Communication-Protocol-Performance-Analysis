@@ -1,5 +1,7 @@
 # Environment 2: CoAP + MQTT
 
+![img](/assets/mqtt.png)
+
 This environment tests the latency and performance characteristics of a network topology using **CoAP** (Constrained Application Protocol) and **MQTT** (Message Queuing Telemetry Transport) communication between an embedded device, edge device, and application.
 
 ## Architecture

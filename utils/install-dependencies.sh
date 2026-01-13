@@ -5,10 +5,9 @@
 
 set -e
 
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║            IoT Lab Dependencies Installer                      ║"
-echo "║        TELE 6510 - Northeastern University                    ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+echo "╔═══════════════════════════════════════════════════════╗"
+echo "║            IoT Lab Dependencies Installer             ║"
+echo "╚═══════════════════════════════════════════════════════╝"
 echo ""
 
 # Check if running as root

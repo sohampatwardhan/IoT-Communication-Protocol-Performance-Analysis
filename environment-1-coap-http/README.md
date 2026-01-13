@@ -1,5 +1,7 @@
 # Environment 1: CoAP + HTTP
 
+![img](/assets/http.png)
+
 This environment tests the latency and performance characteristics of a network topology using **CoAP** (Constrained Application Protocol) and **HTTP** communication between an embedded device, edge device, and application.
 
 ## Architecture
