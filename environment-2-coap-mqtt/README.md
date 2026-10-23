@@ -64,6 +64,8 @@ Results are saved to `../lab_results/env2/`:
 > [!NOTE]
 > Summary table: `../lab_results/summary/env2_summary.csv`
 
+`notebooks/protocol_performance.ipynb` reads these CSVs and the `.pcapng` captures, keeps the captures for Wireshark, and builds the loss-versus-latency table for confirmable CoAP and MQTT QoS 0, 1, and 2, plus the comparison with HTTP.
+
 ## Lab Questions Addressed
 
 This environment answers the following lab questions:

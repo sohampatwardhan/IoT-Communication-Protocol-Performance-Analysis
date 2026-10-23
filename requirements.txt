@@ -1,0 +1,9 @@
+# Python packages for notebooks/protocol_performance.ipynb.
+# tshark is not a pip package. Install it with utils/install-dependencies.sh
+# (apt package tshark). The notebook checks for it and still ingests script
+# CSVs when tshark or capture permission is missing.
+pandas>=2.1
+matplotlib>=3.8
+jupyter>=1.0
+nbformat>=5.9
+ipykernel>=6.29

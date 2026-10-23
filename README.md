@@ -20,6 +20,12 @@ iot-protocol-simulation/
 ├── comprehensive-test/                (test orchestration)
 │   ├── README.md
 │   └── lab_test.sh
+├── notebooks/                         (result collection notebook)
+│   ├── protocol_performance.ipynb
+│   ├── iot_results.py
+│   ├── sample_lab_results/          (synthetic example only)
+│   └── run-store/                   (timestamped CSV/JSON runs)
+├── requirements.txt                   (notebook Python packages)
 └── utils/                             (shared utilities)
     ├── install-dependencies.sh
     └── network-control.sh
@@ -105,6 +111,36 @@ lab_results/
 
 > [!TIP]
 > Save the `lab_results/` directory for your lab report submission. Review the summary CSV files for quick performance comparisons.
+
+## Notebook: lab tables and saved runs
+
+`notebooks/protocol_performance.ipynb` collects a run and builds the tables the lab asks for. It does not reimplement the trials.
+
+- **Ingest** reads `lab_results/` after `test.sh` or `lab_test.sh` has finished: the latency CSVs and the `.pcapng` captures.
+- **Live** runs `environment-1-coap-http/test.sh` and `environment-2-coap-mqtt/test.sh` from their own directories, then ingests `lab_results/`. Live mode needs the CoAP, HTTP, and MQTT tools, `tshark`, and passwordless `sudo` for `tc netem`. If those are missing, the notebook says so and ingests whatever results already exist. It does not invent timings.
+
+Wireshark latency uses tshark, not a Python packet library:
+
+```bash
+tshark -r capture.pcapng -T fields -e frame.time_epoch -e coap.mid -e coap.type -e mqtt.msgtype ... -E separator=,
+```
+
+The notebook also passes decode-as for CoAP on UDP 5683, HTTP on TCP 8080, and MQTT on TCP 1883, which is what `test.sh` uses. `tshark` comes from `utils/install-dependencies.sh`. Parsing a file only needs read permission. Capturing on `lo`, which `test.sh` does, needs dumpcap permission or root. If `tshark` is missing, script-clock columns are still stored and the Wireshark columns are left empty.
+
+Each run is a directory under `notebooks/run-store/<timestamp>/`:
+
+- `metadata.json` records the time, environment, protocol, CoAP type or MQTT QoS, loss percent, payload size when known, transaction count, git commit, and host.
+- `transactions.csv` and `summary.csv` are the versionable numbers. `lab_tables.json` is the loss-versus-latency tables.
+- `captures/` holds the raw `.pcapng` files so they still open in Wireshark for the trace screenshots. Paths are linked from `metadata.json`. `*.pcapng` is gitignored.
+
+`notebooks/sample_lab_results/` is **example data**: synthetic CSVs with 3 transactions and no captures, so the notebook can be opened before a lab run. It is labeled `EXAMPLE_DATA.json`. Do not put those numbers in the report.
+
+```bash
+python3 -m pip install -r requirements.txt
+jupyter notebook notebooks/protocol_performance.ipynb
+```
+
+See `notebooks/run-store/README.md` for the column list. The scripts record a client-side clock and, separately, a capture. They do not record throughput. Packet loss is the configured netem rate. CoAP and HTTP payload sizes are measured only when tshark can see them. MQTT payload sizes configured by `test.sh` are the 10-byte date string and the 9-byte word `timestamp`.
 
 ## System Requirements
 

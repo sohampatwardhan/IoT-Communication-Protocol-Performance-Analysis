@@ -1,4 +1,7 @@
 # Lab Results and Captures
+# Packet captures are untracked everywhere, including copies the notebook
+# stores under notebooks/run-store/<run_id>/captures/ for Wireshark.
+# Those paths are recorded in the run's metadata.json.
 lab_results/
 env1_results/
 env2_results/
@@ -9,6 +12,22 @@ env2_results/
 *.csv
 *.txt
 results/
+
+# requirements.txt is the notebook dependency list, not a results dump.
+!requirements.txt
+
+# The notebook's labeled example fixture and versionable run store are CSV
+# on purpose. Re-include them. Captures stay ignored by *.pcapng above.
+!notebooks/sample_lab_results/**/*.csv
+!notebooks/run-store/**/*.csv
+
+# Plot images saved next to a local run
+notebooks/run-store/**/figures/
+
+# Python / Jupyter
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
 
 # OS Files
 .DS_Store

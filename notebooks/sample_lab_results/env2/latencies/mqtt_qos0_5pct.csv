@@ -1,0 +1,6 @@
+# EXAMPLE DATA — synthetic, not a measurement. See README in the sample_lab_results directory.
+Transaction,Timestamp,Latency_ms
+1,2026-01-15-12:00:01,5.951415
+2,2026-01-15-12:00:02,6.043320
+3,2026-01-15-12:00:03,6.487176
+Average,6.160637

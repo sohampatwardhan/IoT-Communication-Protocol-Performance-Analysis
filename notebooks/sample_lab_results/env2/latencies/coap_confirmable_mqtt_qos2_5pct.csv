@@ -1,0 +1,6 @@
+# EXAMPLE DATA — synthetic, not a measurement. See README in the sample_lab_results directory.
+Transaction,Timestamp,CoAP_Latency_ms,MQTT_Latency_ms,Total_Latency_ms
+1,2026-01-15-12:00:01,24.990388,34.264997,59.255385
+2,2026-01-15-12:00:02,24.880264,34.004577,58.884841
+3,2026-01-15-12:00:03,25.368350,34.301240,59.669590
+Average,25.079667,34.190271,59.269939

@@ -1,0 +1,6 @@
+# EXAMPLE DATA — synthetic, not a measurement.
+Packet Loss %,Confirmable CoAP Latency (ms),Non-confirmable CoAP Latency (ms),HTTP Latency (ms),End-to-End Latency (ms)
+0,14.060746,6.141291,22.030371,36.201565
+3,20.771884,7.032723,25.415896,45.818541
+5,25.180777,7.699440,27.458315,52.982033
+10,36.162344,9.446701,33.183370,69.067167
