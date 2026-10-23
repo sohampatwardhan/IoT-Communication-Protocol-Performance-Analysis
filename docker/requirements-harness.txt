@@ -1,0 +1,17 @@
+# Alpine packages for the test harness image. This is not a pip file.
+# Host analysis packages (Jupyter, pandas, matplotlib) are requirements-analysis.txt.
+# coreutils provides GNU date so `date +%s.%N` works. BusyBox date does not.
+# mosquitto_pub and mosquitto_sub are not this list. Alpine 3.22/3.23 ship
+# mosquitto-clients 2.0.x, and that client waits about a second after a QoS 1
+# or QoS 2 handshake before exiting. The image copies the 2.1 clients from
+# eclipse-mosquitto:2 instead. That image is Alpine, and those clients return
+# when the handshake finishes. QoS 0 was not affected.
+bc
+coreutils
+curl
+iproute2
+iproute2-tc
+iptables
+libcoap
+python3
+tshark

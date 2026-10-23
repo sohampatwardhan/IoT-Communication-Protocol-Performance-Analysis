@@ -20,6 +20,14 @@ iot-protocol-simulation/
 ├── comprehensive-test/                (test orchestration)
 │   ├── README.md
 │   └── lab_test.sh
+├── notebooks/                         (result collection notebook)
+│   ├── protocol_performance.ipynb
+│   ├── iot_results.py
+│   ├── sample_lab_results/          (synthetic example only)
+│   └── run-store/                   (timestamped CSV/JSON runs)
+├── requirements-analysis.txt          (host Jupyter, pandas, matplotlib)
+├── compose.yaml                       (device, edge, application, MQTT, capture)
+├── docker/                            (Alpine harness image, netem sweep, CoAP edge server)
 └── utils/                             (shared utilities)
     ├── install-dependencies.sh
     └── network-control.sh
@@ -105,6 +113,112 @@ lab_results/
 
 > [!TIP]
 > Save the `lab_results/` directory for your lab report submission. Review the summary CSV files for quick performance comparisons.
+
+## Notebook: lab tables and saved runs
+
+`notebooks/protocol_performance.ipynb` collects a run and builds the tables the lab asks for. It does not reimplement the trials.
+
+- **Ingest** reads `lab_results/` after `test.sh` or `lab_test.sh` has finished: the latency CSVs and the `.pcapng` captures.
+- **Live** runs `environment-1-coap-http/test.sh` and `environment-2-coap-mqtt/test.sh` from their own directories, then ingests `lab_results/`. Live mode needs the CoAP, HTTP, and MQTT tools, `tshark`, and passwordless `sudo` for `tc netem`. If those are missing, the notebook says so and ingests whatever results already exist. It does not invent timings.
+
+Wireshark latency uses tshark, not a Python packet library:
+
+```bash
+tshark -r capture.pcapng -T fields -e frame.time_epoch -e coap.mid -e coap.type -e mqtt.msgtype ... -E separator=,
+```
+
+The notebook also passes decode-as for CoAP on UDP 5683, HTTP on TCP 8080, and MQTT on TCP 1883, which is what `test.sh` uses. `tshark` comes from `utils/install-dependencies.sh`. Parsing a file only needs read permission. Capturing on `lo`, which `test.sh` does, needs dumpcap permission or root. If `tshark` is missing, script-clock columns are still stored and the Wireshark columns are left empty.
+
+Each run is a directory under `notebooks/run-store/<timestamp>/`:
+
+- `metadata.json` records the time, environment, protocol, CoAP type or MQTT QoS, loss percent, payload size when known, transaction count, git commit, and host.
+- `transactions.csv` and `summary.csv` are the versionable numbers. `lab_tables.json` is the loss-versus-latency tables.
+- `captures/` holds the raw `.pcapng` files so they still open in Wireshark for the trace screenshots. Paths are linked from `metadata.json`. `*.pcapng` is gitignored.
+
+`notebooks/sample_lab_results/` is **example data**: synthetic CSVs with 3 transactions and no captures, so the notebook can be opened before a lab run. It is labeled `EXAMPLE_DATA.json`. Do not put those numbers in the report.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-analysis.txt
+jupyter notebook notebooks/protocol_performance.ipynb
+```
+
+Jupyter runs on the host and reads `lab_results/` (the CSVs and `.pcapng` captures). It is not a container.
+
+See `notebooks/run-store/README.md` for the column list. The scripts record a client-side clock and, separately, a capture. They do not record throughput. Packet loss is the configured netem rate. CoAP and HTTP payload sizes are measured only when tshark can see them. MQTT payload sizes configured by `test.sh` are the 10-byte date string and the 9-byte word `timestamp`.
+
+## Containerized lab
+
+Compose runs the same device → edge → application topology on one host. It is not Kubernetes. Two user-defined bridges keep the access hop separate from the core:
+
+| Service | Role | Address |
+| --- | --- | --- |
+| `device` | `coap-client`, `curl`, `mosquitto_pub`, all addressed to the edge. | `10.10.0.10` on `access` |
+| `edge` | CoAP `GET /time` returns the 10-byte body `0123456789`. DNATs TCP 8080 and 1883 to the core and masquerades the return path. | `10.10.0.20` on `access`, `10.20.0.20` on `core` |
+| `application` | HTTP `GET /time` returns that same body. `mosquitto_sub` runs here during MQTT trials. | `10.20.0.30` on `core` |
+| `mqtt` | Eclipse Mosquitto, anonymous, port 1883. | `10.20.0.40` on `core` |
+| `capture` | `tshark` in the device network namespace (`NET_RAW` and `NET_ADMIN`). | shares `device` |
+
+The device sends CoAP, HTTP, and MQTT to the edge (`10.10.0.20`). Docker drops a packet whose destination is a container IP unless it arrives on that container's own bridge, so the device cannot address `10.20.0.30` or `10.20.0.40` directly. The edge DNATs TCP 8080 to the application and TCP 1883 to the broker, and masquerades the source so the replies return across the access hop. CoAP is answered by the edge. Loss therefore applies to every device packet. The sweep does not call `test.sh` (those scripts use localhost and `tc` on `lo`). It writes the same CSV names, headers, and `Average` footer, so the notebook ingests `lab_results/` unchanged. The client clock is `date +%s.%N` inside the device container.
+
+### Bring the stack up
+
+From the repository root, on Linux or Docker Desktop:
+
+```bash
+docker compose up -d --build --wait
+```
+
+The image is Alpine and contains only the harness. Alpine package names are in `docker/requirements-harness.txt`. `mosquitto_pub` and `mosquitto_sub` are copied from `eclipse-mosquitto:2` (client 2.1). Alpine 3.22 and 3.23 package `mosquitto-clients` 2.0.x, and that client does not exit until about a second after a QoS 1 or QoS 2 handshake, so the trial would record the wait. The 2.1 client returns when the handshake finishes. QoS 0 was not affected. Jupyter stays on the host and reads the `lab_results/` directory this stack writes. From the same checkout:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-analysis.txt
+jupyter notebook notebooks/protocol_performance.ipynb
+```
+
+Open `notebooks/protocol_performance.ipynb` with `MODE = "ingest"`. Those Python packages are not installed in the containers.
+
+### Run a sweep
+
+The stack has to be up already. This applies `tc netem` on the access interface of **both** the device and the edge (both directions, without an IFB ingress qdisc), captures each trial to `lab_results/*/captures/*.pcapng`, and writes the latency CSVs.
+
+```bash
+sh docker/sweep.sh
+LOSS_PCTS="0 3 5 10" TRANSACTIONS=30 SLEEP_S=1 SWEEP=both sh docker/sweep.sh
+```
+
+`SWEEP` is `env1`, `env2`, or `both`. A one-transaction check is:
+
+```bash
+LOSS_PCTS=0 TRANSACTIONS=1 SLEEP_S=0 sh docker/sweep.sh
+```
+
+Loss is installed for every point, including 0%. The script removes the qdiscs when it exits. In the notebook, leave `RUN_DOCKER_SWEEP = False` unless this stack is already up. The notebook runs on the host and calls `sh docker/sweep.sh` through the host Docker CLI. It does not run `docker compose up`.
+
+Then ingest `lab_results/` (`MODE = "ingest"`). A real tree is preferred over the example fixture.
+
+CoAP and HTTP bodies in this stack are exactly 10 bytes (`0123456789`). MQTT payloads match `test.sh`: `date +%Y-%m-%d` (10 bytes) on the MQTT-only trial and the word `timestamp` (9 bytes) on the combined trial.
+
+### Packet loss and Docker Desktop
+
+`tc netem` runs in the container network namespace, which uses the **Linux kernel under Docker**, not the macOS network stack. There is no `tc` on macOS. Docker Desktop (including Apple Silicon) runs a Linux VM; that VM is where netem is installed. The harness image is Alpine, and `eclipse-mosquitto:2` is the official Alpine Mosquitto image (`FROM alpine`, the same build as `2.1-alpine`). Both are published for amd64 and arm64. The compose file does not pin `linux/amd64`.
+
+`cap_add: NET_ADMIN` is set on the device and the edge. The capture service adds `NET_RAW` as well. Privileged mode is not required. `network_mode: service:device` is supported on Docker Desktop.
+
+Limits that change the numbers:
+
+- **Both directions.** N% on the device egress and N% on the edge access egress drops more round trips than one qdisc of N% on `lo`. Independent loss on each direction hits about `1 - (1 - N/100)^2` of round trips. The original scripts put a single netem qdisc on `lo`. Say which setup a table came from.
+- **No IFB.** Ingress netem needs the `ifb` module. Desktop's VM often does not have it, so the sweep does not use ingress. Egress on both ends is the substitute.
+- **The kernel has to include `sch_netem`.** Containers share the host kernel. `NET_ADMIN` cannot add a scheduler the kernel was built without (`CONFIG_NET_SCH_NETEM`). The sweep runs `tc qdisc replace ... netem` and exits with the kernel error if that fails. Desktop's VM usually has `sch_netem`. A stripped or nested cloud kernel often does not.
+- **The clock is noisier** than a bare-metal loopback test (hypervisor, virtio, and on Apple Silicon the arm64 VM). Compare 0/3/5/10% on the same machine. Do not mix a Desktop sweep and a Linux `lo` sweep in one table.
+- **Access-side capture does not see the broker's PUBLISH to the subscriber.** That hop stays on the core bridge, after the edge DNAT. The device capture still has CoAP, the HTTP request and response (the edge forwards them), and the MQTT publisher handshake (`PUBACK` / `PUBCOMP`). The notebook's MQTT delivery column needs the forwarded PUBLISH, so it can be empty for these captures. The CSV client clock is still recorded. Do not treat a missing delivery cell as zero.
+- **Two iptables backends.** If containers on the same Compose network cannot reach each other, check for a leftover `iptables-legacy` filter whose `FORWARD` policy is `DROP` while Docker is programming nftables. `sudo iptables-legacy -S FORWARD` shows it. A current Docker Engine that uses only one backend does not need this.
+- **Stopping a capture sends SIGTERM** so tshark can flush the `.pcapng`. The files are gitignored, as are the CSVs under `lab_results/`.
+
+`SKIP_NETEM=1 sh docker/sweep.sh` skips `tc` and is only a connectivity check. It writes `lab_results/NETEM_SKIPPED.txt`. Do not put those rows in the report.
 
 ## System Requirements
 

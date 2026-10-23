@@ -65,6 +65,8 @@ Results are saved to `../lab_results/env1/`:
 > [!NOTE]
 > Summary table: `../lab_results/summary/env1_summary.csv`
 
+`notebooks/protocol_performance.ipynb` reads these CSVs and the `.pcapng` captures, keeps the captures for Wireshark, and builds the loss-versus-latency table for confirmable and non-confirmable CoAP.
+
 ## Lab Questions Addressed
 
 This environment answers the following lab questions:

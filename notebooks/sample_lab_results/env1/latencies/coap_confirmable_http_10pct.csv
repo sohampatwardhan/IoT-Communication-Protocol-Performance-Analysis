@@ -1,0 +1,6 @@
+# EXAMPLE DATA — synthetic, not a measurement. See README in the sample_lab_results directory.
+Transaction,Timestamp,CoAP_Latency_ms,HTTP_Latency_ms,Total_Latency_ms
+1,2026-01-15-12:00:01,35.750571,33.114052,68.864623
+2,2026-01-15-12:00:02,36.260102,33.085262,69.345364
+3,2026-01-15-12:00:03,35.912683,33.078831,68.991514
+Average,35.974452,33.092715,69.067167

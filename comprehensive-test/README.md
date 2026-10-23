@@ -54,6 +54,10 @@ lab_results/
     └── FULL_REPORT.txt  # Consolidated report
 ```
 
+## Notebook
+
+After this script finishes, open `notebooks/protocol_performance.ipynb` to ingest `lab_results/`, attach Wireshark timestamps with `tshark`, and write a timestamped run under `notebooks/run-store/`. The raw `.pcapng` files are kept with that run for the Wireshark screenshots. See the repository README.
+
 ## Prerequisites
 
 All prerequisites from both environments must be installed:

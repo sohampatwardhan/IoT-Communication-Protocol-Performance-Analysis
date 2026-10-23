@@ -1,0 +1,7 @@
+{
+  "example_data": true,
+  "do_not_use_for_lab_report": true,
+  "description": "Synthetic latency CSVs in the shape environment-*/test.sh writes. Not measured. No packet captures. Three transactions per series, not the lab's 30.",
+  "transactions_per_series": 3,
+  "seed": 6510
+}

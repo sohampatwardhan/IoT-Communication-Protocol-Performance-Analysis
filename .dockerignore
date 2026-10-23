@@ -1,0 +1,11 @@
+.git
+.github
+lab_results
+notebooks/run-store
+notebooks/sample_lab_results
+**/__pycache__
+**/.ipynb_checkpoints
+**/*.pcap
+**/*.pcapng
+**/*.log
+*.pyc
