@@ -1,0 +1,165 @@
+# Single-host lab: device -> edge -> application, plus the MQTT broker.
+# The device addresses only the edge. The edge DNATs HTTP and MQTT onto the
+# core. Loss is tc netem on the access network (see docker/sweep.sh).
+# Images are multi-arch. Do not pin linux/amd64; Apple Silicon should build arm64.
+name: iot-lab
+
+networks:
+  access:
+    name: iot-lab-access
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+  core:
+    name: iot-lab-core
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.0.0/24
+
+# Built once, from the device service. The other lab services reuse the tag.
+# pull_policy: never so Compose does not look for iot-lab-tools on a registry.
+x-lab: &lab
+  image: iot-lab-tools:local
+  pull_policy: never
+  environment:
+    TZ: UTC
+    PYTHONDONTWRITEBYTECODE: "1"
+  volumes:
+    - ./docker:/opt/lab:ro
+    - ./lab_results:/results
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    networks:
+      core:
+        ipv4_address: 10.20.0.40
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -t '$$SYS/broker/version' -C 1 -W 3"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+  edge:
+    <<: *lab
+    cap_add:
+      - NET_ADMIN
+    init: true
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv4.conf.all.rp_filter: "0"
+      net.ipv4.conf.all.send_redirects: "0"
+    networks:
+      access:
+        ipv4_address: 10.10.0.20
+      core:
+        ipv4_address: 10.20.0.20
+    command: ["sh", "/opt/lab/scripts/edge-init.sh"]
+    healthcheck:
+      test: ["CMD", "sh", "/opt/lab/scripts/edge-health.sh"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  application:
+    <<: *lab
+    init: true
+    networks:
+      core:
+        ipv4_address: 10.20.0.30
+    command: ["sh", "/opt/lab/scripts/application-init.sh"]
+    depends_on:
+      mqtt:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:8080/time', timeout=2).read()==b'0123456789'",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+  device:
+    <<: *lab
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    cap_add:
+      - NET_ADMIN
+    init: true
+    sysctls:
+      net.ipv4.conf.all.accept_redirects: "0"
+    networks:
+      access:
+        ipv4_address: 10.10.0.10
+    command: ["sh", "/opt/lab/scripts/device-init.sh"]
+    depends_on:
+      edge:
+        condition: service_healthy
+      application:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ip -o -4 addr show | grep -q 10.10.0.10"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 2s
+
+  capture:
+    <<: *lab
+    network_mode: service:device
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    init: true
+    command: ["sleep", "infinity"]
+    depends_on:
+      device:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "tshark -v >/dev/null && ip -o -4 addr show | grep -q 10.10.0.10"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+  jupyter:
+    image: iot-lab-jupyter:local
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.jupyter
+    init: true
+    ports:
+      - "127.0.0.1:8888:8888"
+    environment:
+      TZ: UTC
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-}
+    volumes:
+      - .:/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      device:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1',8888),2); s.close()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 25s
