@@ -1,3 +1,7 @@
+# eclipse-mosquitto:2 is Alpine. Its 2.1 clients replace Alpine's 2.0
+# mosquitto-clients package. See requirements-harness.txt.
+FROM eclipse-mosquitto:2 AS mqttcli
+
 FROM alpine:3.22
 
 # Test harness only: CoAP client, HTTP client, MQTT client, the edge CoAP
@@ -17,8 +21,6 @@ RUN set -eu \
     && rm /tmp/requirements-harness.txt \
     && command -v coap-client \
     && command -v curl \
-    && command -v mosquitto_pub \
-    && command -v mosquitto_sub \
     && command -v tc \
     && command -v iptables \
     && command -v tshark \
@@ -27,6 +29,14 @@ RUN set -eu \
     && date +%s.%N | grep -Eq '^[0-9]+\.[0-9]+$' \
     && python3 -c 'import http.server,socket' \
     && tshark --version >/dev/null
+
+COPY --from=mqttcli /usr/bin/mosquitto_pub /usr/bin/mosquitto_pub
+COPY --from=mqttcli /usr/bin/mosquitto_sub /usr/bin/mosquitto_sub
+COPY --from=mqttcli /usr/lib/libmosquitto.so.1 /usr/lib/libmosquitto.so.1
+COPY --from=mqttcli /usr/lib/libcjson.so.1 /usr/lib/libcjson.so.1
+RUN mosquitto_pub 2>&1 | grep -q 'version 2.1' \
+    && mosquitto_sub 2>&1 | grep -q 'version 2.1' \
+    && ldd /usr/bin/mosquitto_pub
 
 WORKDIR /opt/lab
 COPY coap_server.py /opt/lab/coap_server.py

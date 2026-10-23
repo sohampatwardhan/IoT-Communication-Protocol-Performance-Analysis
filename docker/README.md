@@ -2,7 +2,7 @@
 
 The service map, the one-command bring-up, the sweep, and the Docker Desktop / `tc netem` limits are in the [Containerized lab](../README.md#containerized-lab) section of the repository README.
 
-The image is Alpine and contains only the harness: CoAP, HTTP, MQTT, `tc netem`, tshark, and the sweep scripts. Jupyter, the notebook, and pandas/matplotlib are not in the image. Run Jupyter on the host against `lab_results/`. Host packages are [`requirements-analysis.txt`](../requirements-analysis.txt). Alpine packages for the image are [`requirements-harness.txt`](requirements-harness.txt).
+The image is Alpine and contains only the harness: CoAP, HTTP, MQTT, `tc netem`, tshark, and the sweep scripts. `mosquitto_pub` and `mosquitto_sub` come from the Alpine `eclipse-mosquitto:2` image, not Alpine's `mosquitto-clients` 2.0 package, because that package waits about a second after a QoS 1 or 2 handshake. Jupyter, the notebook, and pandas/matplotlib are not in the image. Run Jupyter on the host against `lab_results/`. Host packages are [`requirements-analysis.txt`](../requirements-analysis.txt). Alpine packages for the image are [`requirements-harness.txt`](requirements-harness.txt).
 
 ```bash
 docker compose up -d --build --wait

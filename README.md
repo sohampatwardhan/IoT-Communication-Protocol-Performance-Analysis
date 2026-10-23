@@ -170,7 +170,7 @@ From the repository root, on Linux or Docker Desktop:
 docker compose up -d --build --wait
 ```
 
-The image is Alpine and contains only the harness. Alpine package names are in `docker/requirements-harness.txt`. Jupyter stays on the host and reads the `lab_results/` directory this stack writes. From the same checkout:
+The image is Alpine and contains only the harness. Alpine package names are in `docker/requirements-harness.txt`. `mosquitto_pub` and `mosquitto_sub` are copied from `eclipse-mosquitto:2` (client 2.1). Alpine 3.22 and 3.23 package `mosquitto-clients` 2.0.x, and that client does not exit until about a second after a QoS 1 or QoS 2 handshake, so the trial would record the wait. The 2.1 client returns when the handshake finishes. QoS 0 was not affected. Jupyter stays on the host and reads the `lab_results/` directory this stack writes. From the same checkout:
 
 ```bash
 python3 -m venv .venv
