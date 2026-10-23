@@ -25,9 +25,9 @@ iot-protocol-simulation/
 │   ├── iot_results.py
 │   ├── sample_lab_results/          (synthetic example only)
 │   └── run-store/                   (timestamped CSV/JSON runs)
-├── requirements.txt                   (notebook Python packages)
-├── compose.yaml                       (device, edge, application, MQTT, capture, Jupyter)
-├── docker/                            (images, netem sweep, CoAP edge server)
+├── requirements-analysis.txt          (host Jupyter, pandas, matplotlib)
+├── compose.yaml                       (device, edge, application, MQTT, capture)
+├── docker/                            (Alpine harness image, netem sweep, CoAP edge server)
 └── utils/                             (shared utilities)
     ├── install-dependencies.sh
     └── network-control.sh
@@ -138,9 +138,13 @@ Each run is a directory under `notebooks/run-store/<timestamp>/`:
 `notebooks/sample_lab_results/` is **example data**: synthetic CSVs with 3 transactions and no captures, so the notebook can be opened before a lab run. It is labeled `EXAMPLE_DATA.json`. Do not put those numbers in the report.
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-analysis.txt
 jupyter notebook notebooks/protocol_performance.ipynb
 ```
+
+Jupyter runs on the host and reads `lab_results/` (the CSVs and `.pcapng` captures). It is not a container.
 
 See `notebooks/run-store/README.md` for the column list. The scripts record a client-side clock and, separately, a capture. They do not record throughput. Packet loss is the configured netem rate. CoAP and HTTP payload sizes are measured only when tshark can see them. MQTT payload sizes configured by `test.sh` are the 10-byte date string and the 9-byte word `timestamp`.
 
@@ -155,7 +159,6 @@ Compose runs the same device → edge → application topology on one host. It i
 | `application` | HTTP `GET /time` returns that same body. `mosquitto_sub` runs here during MQTT trials. | `10.20.0.30` on `core` |
 | `mqtt` | Eclipse Mosquitto, anonymous, port 1883. | `10.20.0.40` on `core` |
 | `capture` | `tshark` in the device network namespace (`NET_RAW` and `NET_ADMIN`). | shares `device` |
-| `jupyter` | This notebook, with a Docker CLI on the host socket. | `127.0.0.1:8888` |
 
 The device sends CoAP, HTTP, and MQTT to the edge (`10.10.0.20`). Docker drops a packet whose destination is a container IP unless it arrives on that container's own bridge, so the device cannot address `10.20.0.30` or `10.20.0.40` directly. The edge DNATs TCP 8080 to the application and TCP 1883 to the broker, and masquerades the source so the replies return across the access hop. CoAP is answered by the edge. Loss therefore applies to every device packet. The sweep does not call `test.sh` (those scripts use localhost and `tc` on `lo`). It writes the same CSV names, headers, and `Average` footer, so the notebook ingests `lab_results/` unchanged. The client clock is `date +%s.%N` inside the device container.
 
@@ -167,7 +170,16 @@ From the repository root, on Linux or Docker Desktop:
 docker compose up -d --build --wait
 ```
 
-Jupyter is at <http://127.0.0.1:8888> (empty token, bound to localhost). Open `notebooks/protocol_performance.ipynb`. The socket mount is root-equivalent on the Docker host; do not publish Jupyter beyond localhost without setting `JUPYTER_TOKEN`.
+The image is Alpine and contains only the harness. Alpine package names are in `docker/requirements-harness.txt`. Jupyter stays on the host and reads the `lab_results/` directory this stack writes. From the same checkout:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-analysis.txt
+jupyter notebook notebooks/protocol_performance.ipynb
+```
+
+Open `notebooks/protocol_performance.ipynb` with `MODE = "ingest"`. Those Python packages are not installed in the containers.
 
 ### Run a sweep
 
@@ -184,7 +196,7 @@ LOSS_PCTS="0 3 5 10" TRANSACTIONS=30 SLEEP_S=1 SWEEP=both sh docker/sweep.sh
 LOSS_PCTS=0 TRANSACTIONS=1 SLEEP_S=0 sh docker/sweep.sh
 ```
 
-Loss is installed for every point, including 0%. The script removes the qdiscs when it exits. In the notebook, leave `RUN_DOCKER_SWEEP = False` unless this stack is already up and `docker` can see it. The notebook runs `sh docker/sweep.sh`. It does not run `docker compose up`, because Compose would bind-mount the container's paths instead of this checkout.
+Loss is installed for every point, including 0%. The script removes the qdiscs when it exits. In the notebook, leave `RUN_DOCKER_SWEEP = False` unless this stack is already up. The notebook runs on the host and calls `sh docker/sweep.sh` through the host Docker CLI. It does not run `docker compose up`.
 
 Then ingest `lab_results/` (`MODE = "ingest"`). A real tree is preferred over the example fixture.
 
@@ -192,7 +204,7 @@ CoAP and HTTP bodies in this stack are exactly 10 bytes (`0123456789`). MQTT pay
 
 ### Packet loss and Docker Desktop
 
-`tc netem` runs in the container network namespace, which uses the **Linux kernel under Docker**, not the macOS network stack. There is no `tc` on macOS. Docker Desktop (including Apple Silicon) runs a Linux VM; that VM is where netem is installed. The images are Debian and the official Mosquitto image, both published for amd64 and arm64. The compose file does not pin `linux/amd64`.
+`tc netem` runs in the container network namespace, which uses the **Linux kernel under Docker**, not the macOS network stack. There is no `tc` on macOS. Docker Desktop (including Apple Silicon) runs a Linux VM; that VM is where netem is installed. The harness image is Alpine, and `eclipse-mosquitto:2` is the official Alpine Mosquitto image (`FROM alpine`, the same build as `2.1-alpine`). Both are published for amd64 and arm64. The compose file does not pin `linux/amd64`.
 
 `cap_add: NET_ADMIN` is set on the device and the edge. The capture service adds `NET_RAW` as well. Privileged mode is not required. `network_mode: service:device` is supported on Docker Desktop.
 

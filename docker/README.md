@@ -2,6 +2,8 @@
 
 The service map, the one-command bring-up, the sweep, and the Docker Desktop / `tc netem` limits are in the [Containerized lab](../README.md#containerized-lab) section of the repository README.
 
+The image is Alpine and contains only the harness: CoAP, HTTP, MQTT, `tc netem`, tshark, and the sweep scripts. Jupyter, the notebook, and pandas/matplotlib are not in the image. Run Jupyter on the host against `lab_results/`. Host packages are [`requirements-analysis.txt`](../requirements-analysis.txt). Alpine packages for the image are [`requirements-harness.txt`](requirements-harness.txt).
+
 ```bash
 docker compose up -d --build --wait
 LOSS_PCTS="0 3 5 10" TRANSACTIONS=30 SLEEP_S=1 SWEEP=both sh docker/sweep.sh

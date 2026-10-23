@@ -1,0 +1,9 @@
+# Host-side analysis for notebooks/protocol_performance.ipynb.
+# Install with a local venv. These packages are not in the harness image.
+# tshark on the host parses captures. Install it with utils/install-dependencies.sh.
+# The notebook still ingests script CSVs when tshark or capture permission is missing.
+pandas>=2.1
+matplotlib>=3.8
+jupyter>=1.0
+nbformat>=5.9
+ipykernel>=6.29

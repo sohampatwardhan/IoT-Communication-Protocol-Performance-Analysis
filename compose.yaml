@@ -1,7 +1,8 @@
 # Single-host lab: device -> edge -> application, plus the MQTT broker.
 # The device addresses only the edge. The edge DNATs HTTP and MQTT onto the
 # core. Loss is tc netem on the access network (see docker/sweep.sh).
-# Images are multi-arch. Do not pin linux/amd64; Apple Silicon should build arm64.
+# The harness image is Alpine. Do not pin linux/amd64; Apple Silicon should
+# build arm64. Jupyter is not a service. Run it on the host against lab_results/.
 name: iot-lab
 
 networks:
@@ -32,6 +33,7 @@ x-lab: &lab
 
 services:
   mqtt:
+    # Official tag 2 is the Alpine image (same build as 2.1-alpine), amd64 and arm64.
     image: eclipse-mosquitto:2
     networks:
       core:
@@ -93,8 +95,8 @@ services:
   device:
     <<: *lab
     build:
-      context: .
-      dockerfile: docker/Dockerfile
+      context: ./docker
+      dockerfile: Dockerfile
     cap_add:
       - NET_ADMIN
     init: true
@@ -133,33 +135,3 @@ services:
       timeout: 5s
       retries: 20
       start_period: 3s
-
-  jupyter:
-    image: iot-lab-jupyter:local
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.jupyter
-    init: true
-    ports:
-      - "127.0.0.1:8888:8888"
-    environment:
-      TZ: UTC
-      JUPYTER_TOKEN: ${JUPYTER_TOKEN:-}
-    volumes:
-      - .:/work
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      device:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import socket; s=socket.create_connection(('127.0.0.1',8888),2); s.close()",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 24
-      start_period: 25s

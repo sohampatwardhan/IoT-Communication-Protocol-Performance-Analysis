@@ -1,0 +1,13 @@
+# Alpine packages for the test harness image. This is not a pip file.
+# Host analysis packages (Jupyter, pandas, matplotlib) are requirements-analysis.txt.
+# coreutils provides GNU date so `date +%s.%N` works. BusyBox date does not.
+bc
+coreutils
+curl
+iproute2
+iproute2-tc
+iptables
+libcoap
+mosquitto-clients
+python3
+tshark
