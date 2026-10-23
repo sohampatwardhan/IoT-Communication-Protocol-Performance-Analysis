@@ -35,8 +35,8 @@ COPY --from=mqttcli /usr/bin/mosquitto_sub /usr/bin/mosquitto_sub
 COPY --from=mqttcli /usr/lib/libmosquitto.so.1 /usr/lib/libmosquitto.so.1
 COPY --from=mqttcli /usr/lib/libcjson.so.1 /usr/lib/libcjson.so.1
 RUN mosquitto_pub 2>&1 | grep -q 'version 2.1' \
-    && mosquitto_sub 2>&1 | grep -q 'version 2.1' \
-    && ldd /usr/bin/mosquitto_pub
+    && mosquitto_sub --help 2>&1 | grep -q 'version 2.1' \
+    && ldd /usr/bin/mosquitto_pub >/dev/null
 
 WORKDIR /opt/lab
 COPY coap_server.py /opt/lab/coap_server.py
